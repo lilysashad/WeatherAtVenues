@@ -1,0 +1,42 @@
+title Sequence Diagram
+participant todoist.com (2)
+
+participant User
+participant Localhost 3000
+participant todoist.com (2)
+
+User->(1)Localhost 3000:GET /
+User(1)<-Localhost 3000:200 OK + index.html
+User->(1)Localhost 3000:GET /add_task?task=Mow The Lawn
+alt OAuth 2.0 Three Legged Authorization Flow
+User(1)<-Localhost 3000:302 Temporary Redirect\nLocation: https://todoist.com/oauth/authorize\n?client_id=632...\n&scope=data%3Aread_write\n&state=12345678
+todoist.com (1)(1)<-User:GET oauth/authorize\n?client_id=632...\n&scope=data%3Aread_write\n&state=12345678
+
+note over todoist.com (1):Check to see\nif logged index
+
+todoist.com (1)->(1)User: 200 OK + \nLogin Form
+todoist.com (1)(1)<-User:User/Password
+
+
+note over todoist.com (1):Check to see if\npermission granted\npreviously
+
+todoist.com (1)->(1)User:200 OK + \nDo you grant this \nApplication the following\npermissions...
+todoist.com (1)(1)<-User:Yes
+
+note over todoist.com (1):Can skip to here \nif both true
+
+
+todoist.com (1)->(1)User:302 Redirect \nLocation:Localhost 3000/receive_code\n?code=6sas...\n&state=12345678
+User->(1)Localhost=3000:GET \receive_code\n?code=6sas...\n&state=12345678
+
+Localhost 3000->(1)todoist.com (2):HTTPS POST\nhttps://todoist.com/oath/authorize\nContent-Type: application/x-www-form-urlencoded\n + client_id=632...\n &client_secret=6d2...\n&code=6sas...
+Localhost 3000(1)<-todoist.com (2):HTTPS 200 OK + access_token
+
+
+end
+Localhost 3000->(1)todoist.com (2):HTTPS POST \nhttps://api.todoist.com/rest/v1/tasks\nAuthorization:(access_token)\nContent-Type: application/json\n + ["content":"Mow The Lawn"]
+
+
+Localhost 3000(1)<-todoist.com (2):HTTPS 200 OK\n + JSON Confirmation\n{url:https://todoist.com/app/@task%2F385...}
+
+User(1)<-Localhost 3000:302 Redirect \nhttps://todoist.com/app/@task%2F385...

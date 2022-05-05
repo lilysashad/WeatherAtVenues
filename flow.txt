@@ -1,0 +1,17 @@
+1. User inputs "zipcode" for nearest Kroger chain
+Kroger API starting point requires parameter: filter.zipCode.near
+Returns string. By default, the results are limited to 10 locatiosn within a 10-mile readius of provided starting point.
+i.e. filter.zipCode.near=45044
+
+JSON response is data-> Array() -> address -> state
+
+2. Take "state" from response and store into stateInput variable data[0]?.address.state
+
+3. Have a hashmap set up to find corresponding state and its abbreviation
+i.e. New York = NY
+    California = CA
+    Illinois = IL
+After finding, store in stateInputAbb
+
+4. stateInputAbb is used to find list of venues in state from SeatGeek
+Request link :'https://api.seatgeek.com/2/venues?state={stateInputAbb}'
