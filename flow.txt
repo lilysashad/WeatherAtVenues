@@ -1,17 +1,9 @@
-1. User inputs "zipcode" for nearest Kroger chain
-Kroger API starting point requires parameter: filter.zipCode.near
-Returns string. By default, the results are limited to 10 locatiosn within a 10-mile readius of provided starting point.
-i.e. filter.zipCode.near=45044
+1. User is prompted to enter a US state that will be captured in variable {stateInput} (i.e. "NY" or "CA")
 
-JSON response is data-> Array() -> address -> state
+2. This sends request to SeatGeek API at link: 'https://api.seatgeek.com/2/venues?state={stateInput}' that will return an array of venues within that state
 
-2. Take "state" from response and store into stateInput variable data[0]?.address.state
+3. Browser will display venue name (name_v2), venue address (address), and number of events happening at that venue (stats?.event_count)
 
-3. Have a hashmap set up to find corresponding state and its abbreviation
-i.e. New York = NY
-    California = CA
-    Illinois = IL
-After finding, store in stateInputAbb
+4. The WeatherStack API will be passed each venue's zip code (postal_code) in variable {venueZip} at link: 'http://api.weatherstack.com/current?access_key=[MY_ACCESS_KEY]&query={venueZip}' that will return "current", or current weather data
 
-4. stateInputAbb is used to find list of venues in state from SeatGeek
-Request link :'https://api.seatgeek.com/2/venues?state={stateInputAbb}'
+5. Browser will display the current UTC time (observation_time), temperature in Celsius units (temperature), weather condition (weather_descriptions), and corresponding image of such condition (weather_icons[0])

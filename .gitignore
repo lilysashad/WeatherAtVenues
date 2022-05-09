@@ -1,0 +1,14 @@
+# API stuff
+credentialsSeatGeek.json
+credentialsWeatherStack.json
+
+# Sqlite databases
+*.sqlite3
+
+# misc
+.DS_Store
+.env
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
