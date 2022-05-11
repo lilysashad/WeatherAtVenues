@@ -71,7 +71,7 @@ function processStream(stream, func, ...args){
 
 function parseVenues(data, res){
     const parsedVenues = JSON.parse(data); //represents state object data that was received
-    let results = parsedVenues.venues.map(formatVenues).join(''); //grab the "venues" field of json and run formatVenues foreach
+    parsedVenues.venues.map(formatVenues).join(''); //grab the "venues" field of json and run formatVenues foreach
 
     //grab name, address, event count of each venue
     function formatVenues(venue){
@@ -85,13 +85,12 @@ function parseVenues(data, res){
         venueEventCount === "undefined"){
             return "<h2>Venue information unavailable</h2><a href='/'>Try again</a>";
         }
-        //otherwise, pass in formatted HTML of this info
+
+        //otherwise, synchronously call getWeather
         else{
-            //synchronously call getWeather
             let zip = venue.postal_code;
-            console.log(zip);
+            console.log(`QUERIED ZIP ` + zip);
             getWeather(zip, venueTitle, venueAddress, venueEventCount, res);
-            //return `<li><h2>${venueTitle}</h2><p>Address: ${venueAddress}</p><p>Number of events happening: ${venueEventCount}</p></li>`;
         }
     }
 
@@ -102,13 +101,12 @@ function parseVenues(data, res){
 
 
 function getWeather(zip, title, address, events, res){
-    console.log(zip);
     const weatherStackEndpoint = `http://api.weatherstack.com/current?access_key=${weatherStackKey}&query=${zip}`; //endpoint that specifically searches for venues on SeatGeek API
     const weatherStackRequest = http.get(weatherStackEndpoint, {method: "GET"});
-    weatherStackRequest.on("response", (weatherResponse) => processStream(weatherResponse, parseWeatherResults, res)); //convert stream into variable and pass that variable into callback func parseVenues
+    weatherStackRequest.on("response", (weatherResponse) => processStream(weatherResponse, parseWeatherResults, res, zip)); //convert stream into variable and pass that variable into callback func parseVenues
     weatherStackRequest.end();
 
-    function parseWeatherResults(data, res){
+    function parseWeatherResults(data, res, postalcode){
         let results = JSON.parse(data); //represents state object data that was received
         let weatherInfo = formatWeather(results);
 
@@ -120,25 +118,25 @@ function getWeather(zip, title, address, events, res){
     
         function formatWeather(zip){
             let currentTime = zip.current.observation_time;
-            let tempInCelsius = zip.current.temperature;
+            let tempInFah = zip.current.temperature * 9/5 + 32; //zip.current.temperature returns value in celsius, so convert from celsius to fahrenheit
             let weatherDescription = zip.current.weather_descriptions;
             let weatherPic = zip.current.weather_icons[0];
+
             //if there's issues with collecting information, throw error
             if(currentTime === "undefined" || 
-            tempInCelsius === "undefined" ||
+            tempInFah === "undefined" ||
             weatherDescription === "undefined" ||
             weatherPic === "undefined"){
                 return "<h2>Weather information unavailable</h2><a href='/'>Try again</a>";
             }
+            
             //otherwise, pass in formatted HTML of this info
             else{
-                //synchronously call getWeather
-                //getWeather(venue.postal_code);
-                return `<li><h2>${zip}</h2><p>Time: ${currentTime}</p><p>Temperature: ${tempInCelsius}</p><p>Weather description: ${weatherDescription}</p><img src="${weatherPic}">`;
+                return `<p>Zip code: ${postalcode}</p><p>Current UTC Time: ${currentTime}</p><p>Temperature: ${tempInFah}</p><p>Weather description: ${weatherDescription}</p><img src="${weatherPic}">`;
             }
         }
     
-        results = `<li><h2>${title}</h2><p>Address: ${address}</p><p>Number of events happening: ${events}</p><h2>${weatherInfo}</h2></div>`;
+        results = `<h2>${title}</h2><p>Address: ${address}</p><p>Number of events happening: ${events}</p><h2>${weatherInfo}</h2></div>`;
         res.writeHead(200, {"Content-Type":"text/html"});
         res.write(results);
         res.end();
