@@ -46,11 +46,18 @@ function request_handler(req, res){
 
             res.writeHead(200, {"Content-Type": "text/html"});
 
+            //on or once makes no difference because it only sends one response
             seatGeekRequest.once("response", stream => processStream(stream, parseVenues, res));
             seatGeekRequest.end();
         }
         
     }
+
+    else if(req.url === '/favicon.ico'){
+        const icon = fs.createReadStream('images/favicon.ico');
+        res.writeHead(200, {'Content-Type': 'image/x-icon'});
+        icon.pipe(res);
+  }
 
     //all other possible pages lead to Error
     else{
@@ -87,6 +94,7 @@ function parseVenues(data, res){
     else{
         const formattedVenues = formatVenueHTML(venueTitle, venueAddress, venueEventCount, venueCity);
         const zip = firstResult.postal_code;
+        //synchronously call second api
         getWeather(zip, formattedVenues, res);
     }
 
@@ -99,6 +107,7 @@ function getWeather(zip, venueFormat, res){
     
     res.writeHead(200, {"Content-Type": "text/html"});
     
+    //on or once makes no difference because it only sends one response
     weatherStackRequest.on("response", (weatherResponse) => processStream(weatherResponse, parseWeatherResults, res, zip, venueFormat)); //convert stream into variable and pass that variable into callback func parseVenues
     weatherStackRequest.end();
 
