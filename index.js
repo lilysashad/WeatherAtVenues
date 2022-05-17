@@ -1,18 +1,16 @@
 const fs = require("fs"); 
 const http = require("http");
 const https = require("https");
-const port = 3000; //by default, it listens to 80 but I want it to be 3000
+const querystring = require("querystring");
+const port = 3000;
 
 const states = ['al', 'ak', 'az', 'ar', 'ca', 'co', 'ct', 'de', 'dc', 'fl', 'ga', 'gu', 'hi', 'id', 'il', 'in', 'ia', 'ks', 'ky', 'la', 'me', 'md', 'ma', 'mi', 'mn', 'ms', 'mo', 'mt', 'ne', 'nv', 'nh', 'nj', 'nm', 'ny', 'nc', 'nd', 'oh', 'ok', 'or', 'pa', 'pr', 'ri', 'sc', 'sd', 'tn', 'tx', 'ut', 'vt', 'vi', 'va', 'wa', 'wv', 'wi', 'wy', 'ab', 'bc', 'mb', 'nb', 'nl', 'nt', 'ns', 'nu', 'on', 'pe', 'qc', 'sk', 'yt'];
 
 //credentials for first API SeatGeek
-const seatGeekCreds = require("./auth/credentialsSeatGeek.json");
-const id = seatGeekCreds.client_id;
-const secret =seatGeekCreds.client_secret;
+const {client_id, client_secret} = require("./auth/credentialsSeatGeek.json");
 
 //credentials for second API WeatherStack
-const weatherStackCreds = require("./auth/credentialsWeatherStack.json");
-const weatherStackKey = weatherStackCreds.key;
+const {key} = require("./auth/credentialsWeatherStack.json");
 
 const server = http.createServer();
 server.on("request", request_handler);
@@ -26,12 +24,10 @@ function request_handler(req, res){
         form.pipe(res);
     }
 
-    else if(req.url.startsWith("/search")){ //using startsWith because data is embedded into URL than within message, so startsWith better searches for 'search'
+    else if(req.url.startsWith("/search")){ 
         
         const user_input = new URL(req.url, `https://${req.headers.host}`).searchParams;
-        //searchParams is a hashmap of all inputs that person has filled out
-        //searchParams has get and set functions
-        const stateInput = user_input.get('state').toLowerCase(); //only get 'state' user field from URL
+        const stateInput = user_input.get('state').toLowerCase(); 
 
         //If dropdown menu option is invalid
         if(!states.includes(stateInput) || stateInput === null || stateInput === ""){
@@ -40,17 +36,33 @@ function request_handler(req, res){
 
         //otherwise, send request to SeatGeek API
         else{
+
+            const search_query = querystring.stringify({client_id: `${client_id}`, client_secret: `${client_secret}`, state: `${stateInput}`});
+            const seatGeekEndpoint = `https://api.seatgeek.com/2/venues?${search_query}`; //endpoint that specifically searches for venues on SeatGeek API
             
-            const seatGeekEndpoint = `https://api.seatgeek.com/2/venues?client_id=${id}&client_secret=${secret}&state=${stateInput}`; //endpoint that specifically searches for venues on SeatGeek API
             const seatGeekRequest = https.request(seatGeekEndpoint, {method: "GET"});
 
             res.writeHead(200, {"Content-Type": "text/html"});
 
-            //on or once makes no difference because it only sends one response
             seatGeekRequest.once("response", stream => processStream(stream, parseVenues, res));
             seatGeekRequest.end();
         }
         
+    }
+
+    else if(req.url.startsWith("/weatherpics")){
+        let imageStream = fs.createReadStream(`.${req.url}`);
+		imageStream.on('error', errorHandler);
+		function errorHandler(err){
+			res.writeHead(404, {'Content-Type':"text/html"});
+			res.write("404 Not Found", () => res.end());
+		}
+
+		imageStream.on("ready", deliverImage);
+		function deliverImage(){
+			res.writeHead(200, {'Content-Type': 'image/png'});
+			imageStream.pipe(res);
+		}
     }
 
     else if(req.url === '/favicon.ico'){
@@ -68,13 +80,13 @@ function request_handler(req, res){
 
 function processStream(stream, func, ...args){
     let body = "";
-    stream.on("data", chunk => body += chunk); //every time we get data event from stream, we attach that chunk with body
-    stream.on("end", () => func(body, ...args)); //when there's no more data, use callback function
+    stream.on("data", chunk => body += chunk); 
+    stream.on("end", () => func(body, ...args));
 }
 
 function parseVenues(data, res){
-    const parsedVenues = JSON.parse(data); //represents state object data that was received
-    const firstResult = parsedVenues.venues[0]; //take the very first index result of "venues" object
+    const parsedVenues = JSON.parse(data); 
+    const firstResult = parsedVenues.venues[0];
 
     //collect relevant information about venue
     const venueTitle = firstResult.name;
@@ -90,7 +102,6 @@ function parseVenues(data, res){
         handleError("invalidVenue", res);
     }
 
-    //otherwise, synchronously call getWeather
     else{
         const formattedVenues = formatVenueHTML(venueTitle, venueAddress, venueEventCount, venueCity);
         const zip = firstResult.postal_code;
@@ -100,14 +111,13 @@ function parseVenues(data, res){
 
 }
 
-//after venue info is successfully requested, call getweather for weatherStack
 function getWeather(zip, venueFormat, res){
-    const weatherStackEndpoint = `http://api.weatherstack.com/current?access_key=${weatherStackKey}&query=${zip}`; //endpoint that specifically searches for venues on SeatGeek API
+    const search_query = querystring.stringify({access_key: `${key}`, query: `${zip}`});
+    const weatherStackEndpoint = `http://api.weatherstack.com/current?${search_query}`;
     const weatherStackRequest = http.request(weatherStackEndpoint, {method: "GET"});
     
     res.writeHead(200, {"Content-Type": "text/html"});
     
-    //on or once makes no difference because it only sends one response
     weatherStackRequest.on("response", (weatherResponse) => processStream(weatherResponse, parseWeatherResults, res, zip, venueFormat)); //convert stream into variable and pass that variable into callback func parseVenues
     weatherStackRequest.end();
 
@@ -115,10 +125,10 @@ function getWeather(zip, venueFormat, res){
 
 //parse weather results to collect information about local weather
 function parseWeatherResults(data, res, postalcode, venueFormat){
-    const results = JSON.parse(data); //represents state object data that was received
+    const results = JSON.parse(data);
 
     const currentTime = results.current.observation_time;
-    const tempInFah = results.current.temperature * 9/5 + 32; //result.current.temperature returns value in celsius, so convert from to fahrenheit
+    const tempInFah = results.current.temperature * 9/5 + 32;
     const weatherDescription = results.current.weather_descriptions;
     const weatherPic = results.current.weather_icons[0];
 
@@ -132,13 +142,37 @@ function parseWeatherResults(data, res, postalcode, venueFormat){
     
     //otherwise, pass in formatted HTML of this info
     else{
-        const formattedWeather = formatWeatherHTML(postalcode, currentTime, tempInFah, weatherDescription, weatherPic);
-        const displayResults = `${venueFormat}${formattedWeather}`;
-        
-        res.writeHead(200, {"Content-Type":"text/html"});
-        res.write(displayResults);
-        res.end(); //only weather can end res because website depends on completion of second api call
+
+        //cache image of weather
+        let tokenizedURL = weatherPic.split("/");
+        const filename = tokenizedURL[tokenizedURL.length -1];
+        const imagePath = `weatherpics/${filename}`;
+        fs.access(imagePath, fs.constants.F_OK, (err) => {
+            if(err){
+                const imageRequest = https.get(weatherPic);
+                imageRequest.on("response", function receiveImageData(imageStream){
+                    const storedImage = fs.createWriteStream(imagePath, {encoding:null});
+                    imageStream.pipe(storedImage);
+                    storedImage.on("finish", () => writeAll(postalcode, currentTime, tempInFah, weatherDescription, imagePath, venueFormat, res));
+                });
+                console.log("Image was not cached");
+            }
+
+            else{
+                console.log("Image was cached");
+                writeAll(postalcode, currentTime, tempInFah, weatherDescription, imagePath, venueFormat, res);
+            }
+        });
+
     }
+}
+
+function writeAll(postalcode, currentTime, tempInFah, weatherDescription, imagePath, venueFormat, res){
+    const formattedWeather = formatWeatherHTML(postalcode, currentTime, tempInFah, weatherDescription, imagePath);
+    const displayResults = `${venueFormat}${formattedWeather}`;
+    res.writeHead(200, {"Content-Type":"text/html"});
+    res.write(displayResults);
+    res.end(); 
 }
 
 //organize HTML display of venue
@@ -152,13 +186,13 @@ function formatVenueHTML(title, address, events, city){
 }
 
 //organize HTML display of weather
-function formatWeatherHTML(postalCode, time, temperature, weatherDescription, weatherPic){
+function formatWeatherHTML(postalCode, time, temperature, weatherDescription, imagePath){
     return `<div style="width:49%; float:right;">
     <p><strong>Zip code:</strong> ${postalCode}</p>
     <p><strong>Current UTC Time:</strong> ${time}</p>
     <p><strong>Temperature:</strong> ${temperature}</p>
     <p><strong>Weather description:</strong> ${weatherDescription}</p>
-    <img src="${weatherPic}"></div>`;
+    <img src="${imagePath}"></div>`;
 }
 
 function handleError(errorType, res){

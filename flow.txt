@@ -1,9 +1,0 @@
-1. User is prompted to enter a US state that will be captured in variable {stateInput} (i.e. "NY" or "CA")
-
-2. This sends request to SeatGeek API at link: 'https://api.seatgeek.com/2/venues?state={stateInput}' that will return an array of venues within that state
-
-3. Browser will display venue name (name_v2), venue address (address), and number of events happening at that venue (stats?.event_count)
-
-4. The WeatherStack API will be passed each venue's zip code (postal_code) in variable {venueZip} at link: 'http://api.weatherstack.com/current?access_key=[MY_ACCESS_KEY]&query={venueZip}' that will return "current", or current weather data
-
-5. Browser will display the current UTC time (observation_time), temperature in Celsius units (temperature), weather condition (weather_descriptions), and corresponding image of such condition (weather_icons[0])
